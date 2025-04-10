@@ -1,13 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InitialForm } from './components/InitialForm';
 import { PresentationEditor } from './components/PresentationEditor';
+import { SavedPresentations } from './components/SavedPresentations';
 import { openai } from './lib/openai';
+import { 
+  savePresentation, 
+  updatePresentation, 
+  SavedPresentation, 
+  getSavedPresentations,
+  addDemoPresentation 
+} from './lib/storage';
 
 function App() {
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSavedPresentations, setShowSavedPresentations] = useState<boolean>(true);
+  const [currentPresentation, setCurrentPresentation] = useState<{
+    id?: string;
+    title: string;
+    company: string;
+    creator: string;
+  }>({
+    title: '',
+    company: '',
+    creator: '',
+  });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // 初回マウント時にデモデータを追加
+  useEffect(() => {
+    console.log('App component mounted, adding demo presentation');
+    addDemoPresentation();
+  }, []);
+
+  // 保存メッセージを一定時間後に消す
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const handleFormSubmit = async (data: {
     title: string;
@@ -67,7 +103,13 @@ function App() {
         const formattedContent = finalSlides.join('\n\n');
         
         setGeneratedContent(formattedContent);
+        setCurrentPresentation({
+          title: data.title,
+          company: data.company,
+          creator: data.creator
+        });
         setIsEditing(true);
+        setShowSavedPresentations(false);
       } else {
         throw new Error('No content generated');
       }
@@ -84,14 +126,89 @@ function App() {
     setGeneratedContent(newContent);
   };
 
+  const handlePresentationSave = () => {
+    if (!generatedContent) return;
+
+    try {
+      if (currentPresentation.id) {
+        // 既存のプレゼンテーションを更新
+        updatePresentation(currentPresentation.id, {
+          title: currentPresentation.title,
+          company: currentPresentation.company,
+          creator: currentPresentation.creator,
+          content: generatedContent
+        });
+        setSuccessMessage('プレゼンテーションを更新しました');
+      } else {
+        // 新しいプレゼンテーションを保存
+        const saved = savePresentation({
+          title: currentPresentation.title,
+          company: currentPresentation.company,
+          creator: currentPresentation.creator,
+          content: generatedContent
+        });
+        setCurrentPresentation(prev => ({
+          ...prev,
+          id: saved.id
+        }));
+        setSuccessMessage('プレゼンテーションを保存しました');
+      }
+    } catch (error) {
+      console.error('Error saving presentation:', error);
+      setError('プレゼンテーションの保存に失敗しました');
+    }
+  };
+
   const handleBack = () => {
     setIsEditing(false);
     setGeneratedContent(null);
+    setCurrentPresentation({
+      title: '',
+      company: '',
+      creator: ''
+    });
+    setShowSavedPresentations(true);
   };
 
+  const handlePresentationSelect = (presentation: SavedPresentation) => {
+    setCurrentPresentation({
+      id: presentation.id,
+      title: presentation.title,
+      company: presentation.company,
+      creator: presentation.creator
+    });
+    setGeneratedContent(presentation.content);
+    setIsEditing(true);
+    setShowSavedPresentations(false);
+  };
+
+  const handleCreateNew = () => {
+    setShowSavedPresentations(false);
+    setCurrentPresentation({
+      title: '',
+      company: '',
+      creator: ''
+    });
+  };
+
+  console.log('App rendering, showSavedPresentations:', showSavedPresentations);
+  console.log('App state:', { isEditing, generatedContent });
+  
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      {!isEditing ? (
+      {/* デバッグ情報 */}
+      <div className="fixed top-0 right-0 z-50 bg-gray-100 p-1 text-xs opacity-70">
+        showSavedPresentations: {String(showSavedPresentations)}
+      </div>
+
+      {showSavedPresentations ? (
+        // 保存されたプレゼンテーション一覧画面
+        <SavedPresentations 
+          onPresentationSelect={handlePresentationSelect}
+          onCreateNew={handleCreateNew}
+        />
+      ) : !isEditing ? (
+        // プレゼンテーション作成フォーム画面
         <div className="flex items-center justify-center">
           <InitialForm 
             onSubmit={handleFormSubmit}
@@ -99,24 +216,35 @@ function App() {
           />
         </div>
       ) : generatedContent ? (
+        // プレゼンテーション編集画面
         <div className="container mx-auto">
           <div className="flex justify-between items-center mb-4">
             <button
               onClick={handleBack}
               className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
             >
-              ← Back to Form
+              ← 保存一覧に戻る
             </button>
+            <div className="text-center flex-grow">
+              {currentPresentation.id ? 
+                <span className="text-sm text-gray-500">ID: {currentPresentation.id}</span> : 
+                <span className="text-sm text-gray-500">未保存のプレゼンテーション</span>
+              }
+            </div>
             <button
               onClick={() => setIsEditing(false)}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              Finish Editing
+              編集を終了
             </button>
           </div>
           <PresentationEditor
             content={generatedContent}
+            title={currentPresentation.title}
+            company={currentPresentation.company}
+            creator={currentPresentation.creator}
             onSave={handleContentSave}
+            onSavePresentation={handlePresentationSave}
           />
         </div>
       ) : null}
@@ -124,6 +252,12 @@ function App() {
       {error && (
         <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+          {successMessage}
         </div>
       )}
     </div>

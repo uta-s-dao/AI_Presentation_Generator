@@ -1,16 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Reveal from 'reveal.js';
-import { Maximize2, Minimize2, ImagePlus, FileDown } from 'lucide-react';
+import { Maximize2, Minimize2, ImagePlus, FileDown, Save } from 'lucide-react';
 import { openai } from '../lib/openai';
 import { imageQueue } from '../lib/imageQueue';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { escapeHtml, isSafeUrl } from '../lib/utils';
 import 'reveal.js/dist/reveal.css';
 import 'reveal.js/dist/theme/white.css';
 
 interface PresentationEditorProps {
   content: string;
+  title: string;
+  company: string;
+  creator: string;
   onSave: (content: string) => void;
+  onSavePresentation?: () => void;
 }
 
 interface GeneratedImage {
@@ -19,7 +24,7 @@ interface GeneratedImage {
   alt: string;
 }
 
-export function PresentationEditor({ content, onSave }: PresentationEditorProps) {
+export function PresentationEditor({ content, title, company, creator, onSave, onSavePresentation }: PresentationEditorProps) {
   const presentationRef = useRef<HTMLDivElement>(null);
   const deck = useRef<Reveal.Api | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -77,6 +82,9 @@ export function PresentationEditor({ content, onSave }: PresentationEditorProps)
       const slides = Array.from(presentationRef.current.querySelectorAll('section'));
       const totalSlides = slides.length;
       
+      // PDFのファイル名を作成（安全な文字のみ使用）
+      const safePdfName = `presentation-${new Date().toISOString().replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
+      
       // Create PDF with landscape orientation
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -109,6 +117,23 @@ export function PresentationEditor({ content, onSave }: PresentationEditorProps)
         slideClone.style.transform = 'none';
         slideClone.style.width = '100%';
         slideClone.style.height = '100%';
+        
+        // XSS対策：スクリプトタグや危険な要素を削除
+        const scriptElements = slideClone.querySelectorAll('script, iframe, object, embed');
+        scriptElements.forEach(element => element.remove());
+        
+        // イベントハンドラ属性を削除
+        const allElements = slideClone.querySelectorAll('*');
+        allElements.forEach(element => {
+          // onclick, onerror などのイベントハンドラを削除
+          const attributes = Array.from(element.attributes);
+          attributes.forEach(attr => {
+            if (attr.name.startsWith('on') || attr.value.includes('javascript:')) {
+              element.removeAttribute(attr.name);
+            }
+          });
+        });
+        
         container.appendChild(slideClone);
         
         // Add to document temporarily
@@ -140,7 +165,7 @@ export function PresentationEditor({ content, onSave }: PresentationEditorProps)
       }
       
       // Save the PDF
-      pdf.save('presentation.pdf');
+      pdf.save(safePdfName);
       
       // Restore original slide
       deck.current.slide(currentIndices.h, currentIndices.v, currentIndices.f);
@@ -265,9 +290,11 @@ export function PresentationEditor({ content, onSave }: PresentationEditorProps)
     const image = generatedImages[index];
     const imagePosition = getRandomPosition();
     
-    if (image) {
+    if (image && isSafeUrl(image.url)) {
+      const safeUrl = escapeHtml(image.url);
+      const safeAlt = escapeHtml(image.alt);
       html += `<div class="absolute ${imagePosition} p-4 opacity-20 pointer-events-none">
-        <img src="${image.url}" alt="${image.alt}" class="max-w-[300px] max-h-[300px] object-contain rounded-lg" />
+        <img src="${safeUrl}" alt="${safeAlt}" class="max-w-[300px] max-h-[300px] object-contain rounded-lg" />
       </div>`;
     }
     
@@ -284,9 +311,17 @@ export function PresentationEditor({ content, onSave }: PresentationEditorProps)
           inList = false;
         }
         const [, alt, url] = imageMatch;
-        html += `<div class="flex justify-center my-4">
-          <img src="${url}" alt="${alt}" class="max-h-[500px] max-w-full object-contain rounded-lg shadow-lg" />
-        </div>`;
+        if (isSafeUrl(url)) {
+          const safeUrl = escapeHtml(url);
+          const safeAlt = escapeHtml(alt);
+          html += `<div class="flex justify-center my-4">
+            <img src="${safeUrl}" alt="${safeAlt}" class="max-h-[500px] max-w-full object-contain rounded-lg shadow-lg" />
+          </div>`;
+        } else {
+          html += `<div class="flex justify-center my-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-600">
+            不安全なURLが検出されました
+          </div>`;
+        }
         continue;
       }
       
@@ -295,29 +330,33 @@ export function PresentationEditor({ content, onSave }: PresentationEditorProps)
           html += '</ul>';
           inList = false;
         }
+        const safeText = escapeHtml(trimmedLine.substring(2));
         if (isFirstSlide) {
-          html += `<h1 class="text-4xl font-bold mb-24">${trimmedLine.substring(2)}</h1>`;
+          html += `<h1 class="text-4xl font-bold mb-24">${safeText}</h1>`;
         } else {
-          html += `<h1 class="text-4xl font-bold mb-8">${trimmedLine.substring(2)}</h1>`;
+          html += `<h1 class="text-4xl font-bold mb-8">${safeText}</h1>`;
         }
       } else if (trimmedLine.startsWith('## ')) {
         if (inList) {
           html += '</ul>';
           inList = false;
         }
-        html += `<h2 class="text-2xl font-semibold mb-6 text-right">${trimmedLine.substring(3)}</h2>`;
+        const safeText = escapeHtml(trimmedLine.substring(3));
+        html += `<h2 class="text-2xl font-semibold mb-6 text-right">${safeText}</h2>`;
       } else if (trimmedLine.startsWith('- ')) {
         if (!inList) {
           html += '<ul class="list-disc list-inside space-y-4">';
           inList = true;
         }
-        html += `<li class="text-xl">${trimmedLine.substring(2)}</li>`;
+        const safeText = escapeHtml(trimmedLine.substring(2));
+        html += `<li class="text-xl">${safeText}</li>`;
       } else if (trimmedLine !== '') {
         if (inList) {
           html += '</ul>';
           inList = false;
         }
-        html += `<p class="text-xl mb-4">${trimmedLine}</p>`;
+        const safeText = escapeHtml(trimmedLine);
+        html += `<p class="text-xl mb-4">${safeText}</p>`;
       }
     }
 
@@ -421,6 +460,15 @@ export function PresentationEditor({ content, onSave }: PresentationEditorProps)
                 <Maximize2 className="w-6 h-6 text-white" />
               )}
             </button>
+            {onSavePresentation && (
+              <button
+                onClick={onSavePresentation}
+                className="p-3 bg-green-600 hover:bg-green-700 rounded-full shadow-lg transition-colors"
+                title="プレゼンテーションを保存"
+              >
+                <Save className="w-6 h-6 text-white" />
+              </button>
+            )}
           </div>
           <div className="reveal" ref={presentationRef}>
             <div className="slides">
