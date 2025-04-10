@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.reveal {
+  height: 700px !important;
+}
+
+.reveal.reveal-viewport {
+  height: 100vh !important;
+}
+
+.reveal .slides {
+  text-align: left;
+}
+
+.reveal .slides section {
+  padding: 20px;
+}
+
+.reveal h1 {
+  font-size: 1.7em !important;
+  color: #2563eb !important;
+  margin-bottom: 0.5em !important;
+}
+
+.reveal h2 {
+  font-size: 1.2em !important;
+  color: #1e40af !important;
+  margin-bottom: 0.5em !important;
+}
+
+.reveal h3 {
+  font-size: 1em !important;
+  color: #4b5563 !important;
+  margin-bottom: 0.3em !important;
+}
+
+.reveal p {
+  font-size: 1.2em !important;
+  line-height: 1.6 !important;
+  margin-bottom: 0.8em !important;
+}
+
+.reveal ul {
+  display: block !important;
+  margin-left: 1em !important;
+}
+
+.reveal li {
+  font-size: 0.7em !important;
+  line-height: 1.6 !important;
+  margin-bottom: 0.5em !important;
+  display: list-item !important;
+}
+
+.reveal .controls {
+  bottom: 24px !important;
+}
+
+.reveal .progress {
+  height: 4px !important;
+  background-color: rgba(37, 99, 235, 0.2) !important;
+}
+
+.reveal .progress span {
+  background-color: #2563eb !important;
+}
+
+.reveal img {
+  margin: 0 auto !important;
+  max-height: 500px !important;
+  object-fit: contain !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Fullscreen styles */
+.presentation-container:fullscreen,
+.presentation-container::backdrop {
+  background: white;
+  padding: 2rem;
+}
+
+.presentation-container:fullscreen .reveal,
+.presentation-container::backdrop .reveal {
+  height: 100vh !important;
+}
+
+.presentation-container:fullscreen .reveal .slides,
+.presentation-container::backdrop .reveal .slides {
+  height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.presentation-container:fullscreen .reveal .slides section,
+.presentation-container::backdrop .reveal .slides section {
+  padding: 2rem !important;
+}
