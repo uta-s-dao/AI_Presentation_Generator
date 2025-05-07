@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Reveal from 'reveal.js';
-import { Maximize2, Minimize2, ImagePlus, FileDown, Save } from 'lucide-react';
-import { openai } from '../lib/openai';
+import { Maximize2, Minimize2, ImagePlus, FileDown, Save, Volume2 } from 'lucide-react';
+import { openai, generateNarration } from '../lib/openai';
 import { imageQueue } from '../lib/imageQueue';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -24,6 +24,12 @@ interface GeneratedImage {
   alt: string;
 }
 
+interface SlideNarration {
+  slideIndex: number;
+  text: string;
+  isPlaying: boolean;
+}
+
 export function PresentationEditor({ content, title, company, creator, onSave, onSavePresentation }: PresentationEditorProps) {
   const presentationRef = useRef<HTMLDivElement>(null);
   const deck = useRef<Reveal.Api | null>(null);
@@ -35,6 +41,9 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const currentSlideRef = useRef<{ h: number; v: number; f: number | undefined }>({ h: 0, v: 0, f: undefined });
   const contentRef = useRef(content);
+  const [narrations, setNarrations] = useState<SlideNarration[]>([]);
+  const [isGeneratingNarration, setIsGeneratingNarration] = useState(false);
+  const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const generateImages = async () => {
     if (isGeneratingImages) return;
@@ -65,6 +74,104 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
       }
     } finally {
       setIsGeneratingImages(false);
+    }
+  };
+
+  const generateNarrations = async () => {
+    if (isGeneratingNarration) return;
+
+    const slides = content
+      .split(/\n\n+/)
+      .filter(slide => slide.trim() !== '' && slide.trim() !== '---');
+
+    setIsGeneratingNarration(true);
+    setError(null);
+    setProgress({ current: 0, total: slides.length });
+    
+    try {
+      const newNarrations: SlideNarration[] = [];
+      
+      for (let i = 0; i < slides.length; i++) {
+        const narrationText = await generateNarration(slides[i]);
+        newNarrations.push({
+          slideIndex: i,
+          text: narrationText,
+          isPlaying: false
+        });
+        setProgress(prev => ({ ...prev, current: i + 1 }));
+      }
+
+      setNarrations(newNarrations);
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+      }
+    } finally {
+      setIsGeneratingNarration(false);
+    }
+  };
+
+  const playNarration = (slideIndex: number) => {
+    // 他のナレーションが再生中であれば停止
+    if (speechSynthesisRef.current) {
+      window.speechSynthesis.cancel();
+    }
+
+    const narration = narrations.find(n => n.slideIndex === slideIndex);
+    if (!narration) return;
+
+    // ナレーションの状態を更新
+    setNarrations(prev => 
+      prev.map(n => ({
+        ...n,
+        isPlaying: n.slideIndex === slideIndex
+      }))
+    );
+
+    // Speech Synthesis の設定
+    const utterance = new SpeechSynthesisUtterance(narration.text);
+    utterance.lang = 'ja-JP';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    // 終了時の処理
+    utterance.onend = () => {
+      setNarrations(prev => 
+        prev.map(n => ({
+          ...n,
+          isPlaying: false
+        }))
+      );
+      speechSynthesisRef.current = null;
+    };
+
+    // エラー時の処理
+    utterance.onerror = () => {
+      setNarrations(prev => 
+        prev.map(n => ({
+          ...n,
+          isPlaying: false
+        }))
+      );
+      speechSynthesisRef.current = null;
+    };
+
+    // 再生
+    speechSynthesisRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopNarration = () => {
+    if (speechSynthesisRef.current) {
+      window.speechSynthesis.cancel();
+      setNarrations(prev => 
+        prev.map(n => ({
+          ...n,
+          isPlaying: false
+        }))
+      );
+      speechSynthesisRef.current = null;
     }
   };
 
@@ -206,6 +313,7 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
           progress: true,
           center: true,
           transition: 'none',
+          showNotes: false,
         });
 
         await newDeck.initialize();
@@ -405,6 +513,33 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, []);
+  
+  // Reveal.jsでスライドが変わったときにナレーションを自動再生する
+  useEffect(() => {
+    if (!deck.current) return;
+    
+    const handleSlideChange = () => {
+      if (!deck.current) return;
+      
+      const currentIndices = deck.current.getIndices();
+      const currentSlideIndex = currentIndices.h;
+      
+      // ナレーションが生成されていて、現在のスライドがあれば再生
+      const narration = narrations.find(n => n.slideIndex === currentSlideIndex);
+      if (narration) {
+        playNarration(currentSlideIndex);
+      }
+    };
+    
+    deck.current.on('slidechanged', handleSlideChange);
+    
+    return () => {
+      if (deck.current) {
+        // @ts-ignore - TypeScriptの型定義にoffが含まれていないがReveal.jsにはある
+        deck.current.off('slidechanged', handleSlideChange);
+      }
+    };
+  }, [narrations]);
 
   return (
     <div className="w-full bg-white rounded-xl shadow-lg overflow-hidden relative">
@@ -415,6 +550,17 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
                 <p className="text-gray-600">画像を生成中... ({progress.current}/{progress.total})</p>
+                {error && (
+                  <p className="text-red-600 mt-2 text-sm">{error}</p>
+                )}
+              </div>
+            </div>
+          )}
+          {isGeneratingNarration && (
+            <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                <p className="text-gray-600">ナレーションを生成中... ({progress.current}/{progress.total})</p>
                 {error && (
                   <p className="text-red-600 mt-2 text-sm">{error}</p>
                 )}
@@ -450,6 +596,14 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
               <ImagePlus className="w-6 h-6 text-white" />
             </button>
             <button
+              onClick={generateNarrations}
+              disabled={isGeneratingNarration}
+              className="p-3 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed"
+              title="AIでナレーションを生成"
+            >
+              <Volume2 className="w-6 h-6 text-white" />
+            </button>
+            <button
               onClick={toggleFullscreen}
               className="p-3 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg transition-colors"
               title={isFullscreen ? "全画面表示を終了" : "全画面表示に切り替え"}
@@ -476,6 +630,7 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
                 <section 
                   key={index}
                   className="p-8"
+                  data-notes={narrations.find(n => n.slideIndex === index)?.text}
                 >
                   <div 
                     dangerouslySetInnerHTML={{ __html: slideContent }}
@@ -498,6 +653,24 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
               <li>空行で新しいスライド</li>
             </ul>
           </div>
+          {narrations.length > 0 && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <h4 className="font-semibold text-blue-800 mb-2">スピーカーノート</h4>
+              {deck.current && (
+                <div className="text-sm text-gray-700">
+                  <p className="italic mb-2">{narrations.find(n => n.slideIndex === deck.current?.getIndices().h)?.text || "現在のスライドのナレーションがありません"}</p>
+                  <div className="flex justify-end mt-2">
+                    <button 
+                      onClick={() => playNarration(deck.current?.getIndices().h || 0)}
+                      className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      再生
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <textarea
             className="w-full h-[500px] p-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
             value={content}
