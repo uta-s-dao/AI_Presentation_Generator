@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Presentation, Edit, Trash2, Calendar, User } from 'lucide-react';
 import { getSavedPresentations, deletePresentation, SavedPresentation } from '../lib/storage';
 import { escapeHtml } from '../lib/utils';
@@ -103,8 +103,13 @@ export function SavedPresentations({ onPresentationSelect, onCreateNew }: SavedP
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {presentations.map((presentation) => (
-            <div 
+          {presentations.map((presentation) => {
+            const safeTitle = escapeHtml(presentation.title);
+            const safeCompany = escapeHtml(presentation.company);
+            const safeCreator = escapeHtml(presentation.creator);
+
+            return (
+            <div
               key={presentation.id}
               className="border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4 relative"
             >
@@ -133,16 +138,16 @@ export function SavedPresentations({ onPresentationSelect, onCreateNew }: SavedP
               <div className="flex items-start">
                 <div className="flex-grow">
                   <h2 className="text-xl font-semibold text-gray-800 truncate">
-                    {presentation.title}
+                    {safeTitle}
                   </h2>
                   <p className="text-gray-600 text-sm">
-                    {presentation.company}
+                    {safeCompany}
                   </p>
                   
                   <div className="flex flex-wrap mt-3 text-xs text-gray-500 gap-3">
                     <div className="flex items-center">
                       <User className="w-3.5 h-3.5 mr-1" />
-                      {presentation.creator}
+                      {safeCreator}
                     </div>
                     <div className="flex items-center">
                       <Calendar className="w-3.5 h-3.5 mr-1" />
@@ -169,7 +174,7 @@ export function SavedPresentations({ onPresentationSelect, onCreateNew }: SavedP
                 </div>
               </div>
             </div>
-          ))}
+          })}
         </div>
       )}
     </div>
