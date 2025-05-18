@@ -37,7 +37,7 @@ AIを活用してプレゼンテーションを素早く作成するReactアプ�
 1. リポジトリをクローン
    ```
    git clone https://github.com/yourusername/ai-presentation-generator.git
-   cd ai-presentation-generator
+   cd AI_Presentation_Generator
    ```
 
 2. 依存関係をインストール
