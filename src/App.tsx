@@ -31,7 +31,9 @@ function App() {
 
   // 初回マウント時にデモデータを追加
   useEffect(() => {
-    console.log('App component mounted, adding demo presentation');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('App component mounted, adding demo presentation');
+    }
     addDemoPresentation();
   }, []);
 
@@ -191,8 +193,10 @@ function App() {
     });
   };
 
-  console.log('App rendering, showSavedPresentations:', showSavedPresentations);
-  console.log('App state:', { isEditing, generatedContent });
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('App rendering, showSavedPresentations:', showSavedPresentations);
+    console.log('App state:', { isEditing, generatedContent });
+  }
   
   return (
     <div className="min-h-screen bg-gray-50 p-4">
