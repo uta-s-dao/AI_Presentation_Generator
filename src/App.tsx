@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { InitialForm } from './components/InitialForm';
 import { PresentationEditor } from './components/PresentationEditor';
 import { SavedPresentations } from './components/SavedPresentations';
-import { openai } from './lib/openai';
+import { chatCompletion } from './lib/openai';
 import { 
   savePresentation, 
   updatePresentation, 
@@ -59,11 +59,10 @@ function App() {
     setError(null);
     
     try {
-      const completion = await openai.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content: `You are a professional presentation creator. Your task is to create a presentation outline with EXACTLY ${data.slideCount} slides, no more and no less. Follow these rules strictly:
+      const content = await chatCompletion([
+        {
+          role: "system",
+          content: `You are a professional presentation creator. Your task is to create a presentation outline with EXACTLY ${data.slideCount} slides, no more and no less. Follow these rules strictly:
 1. Create EXACTLY ${data.slideCount} distinct slides
 2. Each slide must be separated by TWO newlines
 3. Use this format:
@@ -79,17 +78,12 @@ function App() {
 6. Count your slides carefully and ensure it matches ${data.slideCount}
 7. DO NOT include any extra slides
 8. DO NOT include any transition text or notes between slides`
-          },
-          {
-            role: "user",
-            content: `Create a presentation outline with exactly ${data.slideCount} slides.\nTitle: ${data.title}\nCompany: ${data.company}\nCreator: ${data.creator}\nOverview: ${data.overview}\nPurpose: ${data.purpose}\n\nIMPORTANT: The presentation MUST have EXACTLY ${data.slideCount} slides, no more and no less.`
-          }
-        ],
-        model: "gpt-4-turbo-preview",
-        temperature: 0.7,
-      });
-
-      const content = completion.choices[0].message.content;
+        },
+        {
+          role: "user",
+          content: `Create a presentation outline with exactly ${data.slideCount} slides.\nTitle: ${data.title}\nCompany: ${data.company}\nCreator: ${data.creator}\nOverview: ${data.overview}\nPurpose: ${data.purpose}\n\nIMPORTANT: The presentation MUST have EXACTLY ${data.slideCount} slides, no more and no less.`
+        }
+      ], "gpt-4-turbo-preview", 0.7);
       if (content) {
         // Split content into slides and ensure exact count
         const slides = content

@@ -1,37 +1,45 @@
-import OpenAI from 'openai';
-
-const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-
-if (!apiKey) {
-  throw new Error('OpenAI API key is not set in environment variables');
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
-export const openai = new OpenAI({
-  apiKey: apiKey,
-  dangerouslyAllowBrowser: true // Note: In production, API calls should be made through a backend server
-});
+async function postJSON<T>(url: string, data: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export async function chatCompletion(messages: ChatMessage[], model = 'gpt-4-turbo-preview', temperature = 0.7): Promise<string> {
+  const data = await postJSON<{ text: string }>('/api/generate-text', { messages, model, temperature });
+  return data.text;
+}
 
 export const generateNarration = async (slideContent: string): Promise<string> => {
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "あなたはプロのプレゼンターです。スライドの内容に基づいた簡潔で魅力的なナレーションを生成してください。ナレーションは明確で自然な話し言葉で、1〜3文程度にしてください。"
-        },
-        {
-          role: "user",
-          content: `以下のスライドのナレーションを生成してください:\n\n${slideContent}`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 200,
-    });
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: 'あなたはプロのプレゼンターです。スライドの内容に基づいた簡潔で魅力的なナレーションを生成してください。ナレーションは明確で自然な話し言葉で、1〜3文程度にしてください。'
+    },
+    {
+      role: 'user',
+      content: `以下のスライドのナレーションを生成してください:\n\n${slideContent}`
+    }
+  ];
 
-    return response.choices[0]?.message?.content || "ナレーションを生成できませんでした。";
+  try {
+    return await chatCompletion(messages, 'gpt-4');
   } catch (error) {
-    console.error("ナレーション生成エラー:", error);
-    return "ナレーションの生成中にエラーが発生しました。";
+    console.error('ナレーション生成エラー:', error);
+    return 'ナレーションの生成中にエラーが発生しました。';
   }
 };

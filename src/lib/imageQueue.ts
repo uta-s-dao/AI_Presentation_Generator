@@ -1,4 +1,3 @@
-import { openai } from './openai';
 
 interface QueueItem {
   slideContent: string;
@@ -67,19 +66,24 @@ class ImageGenerationQueue {
     try {
       const textContent = slideContent.replace(/!\[.*?\]\(.*?\)/g, '').replace(/[#\-]/g, '').trim();
       
-      const response = await openai.images.generate({
-        model: "dall-e-3",
-        prompt: `Create a professional presentation slide image that represents: ${textContent}. Make it abstract and subtle, suitable as a background or complementary image for a business presentation.`,
-        n: 1,
-        size: "1024x1024",
-        quality: "standard",
-        style: "natural"
+      const response = await fetch('/api/generate-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: `Create a professional presentation slide image that represents: ${textContent}. Make it abstract and subtle, suitable as a background or complementary image for a business presentation.`
+        })
       });
+      if (!response.ok) {
+        throw new Error(`Image generation failed with status ${response.status}`);
+      }
+      const data: { url?: string } = await response.json();
 
-      if (response.data[0]?.url) {
+      if (data.url) {
         return {
           id: crypto.randomUUID(),
-          url: response.data[0].url,
+          url: data.url,
           alt: `AI generated image for: ${textContent.substring(0, 50)}...`
         };
       }

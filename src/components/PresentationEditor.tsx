@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Reveal from 'reveal.js';
 import { Maximize2, Minimize2, ImagePlus, FileDown, Save, Volume2 } from 'lucide-react';
-import { openai, generateNarration } from '../lib/openai';
+import { generateNarration } from '../lib/openai';
 import { imageQueue } from '../lib/imageQueue';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
