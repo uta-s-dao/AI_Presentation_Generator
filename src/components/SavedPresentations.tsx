@@ -13,14 +13,20 @@ export function SavedPresentations({ onPresentationSelect, onCreateNew }: SavedP
   const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('SavedPresentations component mounted');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('SavedPresentations component mounted');
+    }
     loadPresentations();
   }, []);
 
   const loadPresentations = () => {
-    console.log('Loading presentations from storage');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Loading presentations from storage');
+    }
     const savedPresentations = getSavedPresentations();
-    console.log('Retrieved presentations:', savedPresentations);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Retrieved presentations:', savedPresentations);
+    }
     
     const sortedPresentations = savedPresentations.length > 0
       ? savedPresentations.sort((a, b) => 
@@ -28,7 +34,9 @@ export function SavedPresentations({ onPresentationSelect, onCreateNew }: SavedP
         )
       : [];
       
-    console.log('Setting presentations state:', sortedPresentations);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Setting presentations state:', sortedPresentations);
+    }
     setPresentations(sortedPresentations);
   };
 
@@ -57,7 +65,9 @@ export function SavedPresentations({ onPresentationSelect, onCreateNew }: SavedP
     }).format(date);
   };
 
-  console.log('SavedPresentations rendering, presentations.length:', presentations.length);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('SavedPresentations rendering, presentations.length:', presentations.length);
+  }
   
   return (
     <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg">

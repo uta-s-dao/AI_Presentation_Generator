@@ -149,5 +149,7 @@ export function addDemoPresentation() {
   };
   
   savePresentation(demoPresentation);
-  console.log('Demo presentation added');
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Demo presentation added');
+  }
 }
