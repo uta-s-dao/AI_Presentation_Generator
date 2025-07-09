@@ -21,6 +21,7 @@ export function SavedPresentations({
     null
   );
 
+  //localstorageから読み込み
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
       console.log("SavedPresentations component mounted");

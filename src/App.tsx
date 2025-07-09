@@ -217,8 +217,8 @@ function App() {
       {showSavedPresentations ? (
         // 保存されたプレゼンテーション一覧画面
         <SavedPresentations
-          onPresentationSelect={handlePresentationSelect}
-          onCreateNew={handleCreateNew}
+          onPresentationSelect={handlePresentationSelect} //既存のプレゼンテーションが選択された時の処理
+          onCreateNew={handleCreateNew} //新規プレゼンテーション作成時の処理：
         />
       ) : !isEditing ? (
         // プレゼンテーション作成フォーム画面
