@@ -1,38 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { InitialForm } from './components/InitialForm';
-import { PresentationEditor } from './components/PresentationEditor';
-import { SavedPresentations } from './components/SavedPresentations';
-import { chatCompletion } from './lib/openai';
-import { 
-  savePresentation, 
-  updatePresentation, 
-  SavedPresentation, 
-  getSavedPresentations,
-  addDemoPresentation 
-} from './lib/storage';
+import { useState, useEffect } from "react";
+import { InitialForm } from "./components/InitialForm";
+import { PresentationEditor } from "./components/PresentationEditor";
+import { SavedPresentations } from "./components/SavedPresentations";
+import { chatCompletion } from "./lib/openai";
+import {
+  savePresentation,
+  updatePresentation,
+  SavedPresentation,
+  // getSavedPresentations,
+  addDemoPresentation,
+} from "./lib/storage";
 
 function App() {
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showSavedPresentations, setShowSavedPresentations] = useState<boolean>(true);
+  const [showSavedPresentations, setShowSavedPresentations] =
+    useState<boolean>(true);
   const [currentPresentation, setCurrentPresentation] = useState<{
     id?: string;
     title: string;
     company: string;
     creator: string;
   }>({
-    title: '',
-    company: '',
-    creator: '',
+    title: "",
+    company: "",
+    creator: "",
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // 初回マウント時にデモデータを追加
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('App component mounted, adding demo presentation');
+    if (process.env.NODE_ENV !== "production") {
+      console.log("App component mounted, adding demo presentation");
     }
     addDemoPresentation();
   }, []);
@@ -57,12 +58,13 @@ function App() {
   }) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const content = await chatCompletion([
-        {
-          role: "system",
-          content: `You are a professional presentation creator. Your task is to create a presentation outline with EXACTLY ${data.slideCount} slides, no more and no less. Follow these rules strictly:
+      const content = await chatCompletion(
+        [
+          {
+            role: "system",
+            content: `You are a professional presentation creator. Your task is to create a presentation outline with EXACTLY ${data.slideCount} slides, no more and no less. Follow these rules strictly:
 1. Create EXACTLY ${data.slideCount} distinct slides
 2. Each slide must be separated by TWO newlines
 3. Use this format:
@@ -77,41 +79,50 @@ function App() {
 5. Make each slide substantive and meaningful
 6. Count your slides carefully and ensure it matches ${data.slideCount}
 7. DO NOT include any extra slides
-8. DO NOT include any transition text or notes between slides`
-        },
-        {
-          role: "user",
-          content: `Create a presentation outline with exactly ${data.slideCount} slides.\nTitle: ${data.title}\nCompany: ${data.company}\nCreator: ${data.creator}\nOverview: ${data.overview}\nPurpose: ${data.purpose}\n\nIMPORTANT: The presentation MUST have EXACTLY ${data.slideCount} slides, no more and no less.`
-        }
-      ], "gpt-4-turbo-preview", 0.7);
+8. DO NOT include any transition text or notes between slides`,
+          },
+          {
+            role: "user",
+            content: `Create a presentation outline with exactly ${data.slideCount} slides.\nTitle: ${data.title}\nCompany: ${data.company}\nCreator: ${data.creator}\nOverview: ${data.overview}\nPurpose: ${data.purpose}\n\nIMPORTANT: The presentation MUST have EXACTLY ${data.slideCount} slides, no more and no less.`,
+          },
+        ],
+        "gpt-4-turbo-preview",
+        0.7
+      );
       if (content) {
         // Split content into slides and ensure exact count
         const slides = content
           .split(/\n\n+/)
-          .filter(slide => slide.trim() !== '' && slide.trim() !== '---');
+          .filter((slide) => slide.trim() !== "" && slide.trim() !== "---");
 
         if (slides.length < data.slideCount) {
-          throw new Error(`AI generated only ${slides.length} slides instead of the requested ${data.slideCount} slides. Please try again.`);
+          throw new Error(
+            `AI generated only ${slides.length} slides instead of the requested ${data.slideCount} slides. Please try again.`
+          );
         }
 
         // Take exactly the number of slides requested
         const finalSlides = slides.slice(0, data.slideCount);
-        const formattedContent = finalSlides.join('\n\n');
-        
+        const formattedContent = finalSlides.join("\n\n");
+
         setGeneratedContent(formattedContent);
         setCurrentPresentation({
           title: data.title,
           company: data.company,
-          creator: data.creator
+          creator: data.creator,
         });
         setIsEditing(true);
         setShowSavedPresentations(false);
       } else {
-        throw new Error('No content generated');
+        throw new Error("No content generated");
       }
     } catch (error) {
-      console.error('Error generating presentation:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate presentation. Please try again.');
+      console.error("Error generating presentation:", error);
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to generate presentation. Please try again."
+      );
       setIsEditing(false);
     } finally {
       setIsLoading(false);
@@ -132,26 +143,26 @@ function App() {
           title: currentPresentation.title,
           company: currentPresentation.company,
           creator: currentPresentation.creator,
-          content: generatedContent
+          content: generatedContent,
         });
-        setSuccessMessage('プレゼンテーションを更新しました');
+        setSuccessMessage("プレゼンテーションを更新しました");
       } else {
         // 新しいプレゼンテーションを保存
         const saved = savePresentation({
           title: currentPresentation.title,
           company: currentPresentation.company,
           creator: currentPresentation.creator,
-          content: generatedContent
+          content: generatedContent,
         });
-        setCurrentPresentation(prev => ({
+        setCurrentPresentation((prev) => ({
           ...prev,
-          id: saved.id
+          id: saved.id,
         }));
-        setSuccessMessage('プレゼンテーションを保存しました');
+        setSuccessMessage("プレゼンテーションを保存しました");
       }
     } catch (error) {
-      console.error('Error saving presentation:', error);
-      setError('プレゼンテーションの保存に失敗しました');
+      console.error("Error saving presentation:", error);
+      setError("プレゼンテーションの保存に失敗しました");
     }
   };
 
@@ -159,9 +170,9 @@ function App() {
     setIsEditing(false);
     setGeneratedContent(null);
     setCurrentPresentation({
-      title: '',
-      company: '',
-      creator: ''
+      title: "",
+      company: "",
+      creator: "",
     });
     setShowSavedPresentations(true);
   };
@@ -171,7 +182,7 @@ function App() {
       id: presentation.id,
       title: presentation.title,
       company: presentation.company,
-      creator: presentation.creator
+      creator: presentation.creator,
     });
     setGeneratedContent(presentation.content);
     setIsEditing(true);
@@ -181,57 +192,63 @@ function App() {
   const handleCreateNew = () => {
     setShowSavedPresentations(false);
     setCurrentPresentation({
-      title: '',
-      company: '',
-      creator: ''
+      title: "",
+      company: "",
+      creator: "",
     });
   };
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('App rendering, showSavedPresentations:', showSavedPresentations);
-    console.log('App state:', { isEditing, generatedContent });
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      "App rendering, showSavedPresentations:",
+      showSavedPresentations
+    );
+    console.log("App state:", { isEditing, generatedContent });
   }
-  
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      {/* デバッグ情報 */}
-      <div className="fixed top-0 right-0 z-50 bg-gray-100 p-1 text-xs opacity-70">
-        showSavedPresentations: {String(showSavedPresentations)}
-      </div>
 
+  return (
+    <div className='min-h-screen'>
+      <div className='flex justify-center border-b mb-3'>
+        {/* デバッグ情報 */}
+        <button onClick={handleBack} className='pt-3 pr-3 pl-2 mb-2 text-4xl'>
+          Presentation Generator
+        </button>
+      </div>
       {showSavedPresentations ? (
         // 保存されたプレゼンテーション一覧画面
-        <SavedPresentations 
-          onPresentationSelect={handlePresentationSelect}
-          onCreateNew={handleCreateNew}
+        <SavedPresentations
+          onPresentationSelect={handlePresentationSelect} //既存のプレゼンテーションが選択された時の処理
+          onCreateNew={handleCreateNew} //新規プレゼンテーション作成時の処理：
         />
       ) : !isEditing ? (
         // プレゼンテーション作成フォーム画面
-        <div className="flex items-center justify-center">
-          <InitialForm 
-            onSubmit={handleFormSubmit}
-            isLoading={isLoading}
-          />
+        <div className='flex items-center justify-center'>
+          <InitialForm onSubmit={handleFormSubmit} isLoading={isLoading} />
         </div>
       ) : generatedContent ? (
         // プレゼンテーション編集画面
-        <div className="container mx-auto">
-          <div className="flex justify-between items-center mb-4">
+        <div className='container mx-auto'>
+          <div className='flex justify-between items-center mb-4'>
             <button
               onClick={handleBack}
-              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+              className='px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors'
             >
               ← 保存一覧に戻る
             </button>
-            <div className="text-center flex-grow">
-              {currentPresentation.id ? 
-                <span className="text-sm text-gray-500">ID: {currentPresentation.id}</span> : 
-                <span className="text-sm text-gray-500">未保存のプレゼンテーション</span>
-              }
+            <div className='text-center flex-grow'>
+              {currentPresentation.id ? (
+                <span className='text-sm text-gray-500'>
+                  ID: {currentPresentation.id}
+                </span>
+              ) : (
+                <span className='text-sm text-gray-500'>
+                  未保存のプレゼンテーション
+                </span>
+              )}
             </div>
             <button
               onClick={() => setIsEditing(false)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
             >
               編集を終了
             </button>
@@ -248,13 +265,13 @@ function App() {
       ) : null}
 
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className='fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded'>
           {error}
         </div>
       )}
 
       {successMessage && (
-        <div className="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+        <div className='fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded'>
           {successMessage}
         </div>
       )}
