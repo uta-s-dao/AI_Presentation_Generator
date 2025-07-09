@@ -1,0 +1,40 @@
+version: "3"
+
+services:
+  # Node.js
+  node:
+    build: .
+    container_name: node
+    tty: true
+    ports:
+      - 3000:3000
+    volumes:
+      - .:/var/www //docker-compose.yamlがあるディレクトリ全体を/var/wwwにマウント
+    networks:
+      - default
+
+  # データベース
+  db:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      # 設定ファイルディレクトリにマウントする
+      - ./mysql/conf.d:/etc/mysql/conf.d
+      # DB初期化ディレクトリにマウントする
+      - ./mysql/init.d:/docker-entrypoint-initdb.d
+    # ネットワーク
+    networks:
+      - default
+
+# ネットワーク
+networks:
+  default:
+    driver: bridge
