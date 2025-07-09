@@ -10,6 +10,7 @@ services:
       - 3000:3000
     volumes:
       - .:/var/www //docker-compose.yamlがあるディレクトリ全体を/var/wwwにマウント
+    command: npm run dev
     networks:
       - default
 

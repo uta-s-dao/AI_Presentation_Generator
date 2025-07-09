@@ -12,6 +12,8 @@ export default defineConfig({
     globals: true,
   },
   server: {
+    host: "0.0.0.0", // ← 追加：コンテナ内でアクセス可能にする
+    port: 3000, // ← 追加：ポートを3000に固定
     proxy: {
       "/api": {
         target: "http://localhost:3000",
