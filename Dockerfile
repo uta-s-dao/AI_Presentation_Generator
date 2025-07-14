@@ -25,8 +25,6 @@ COPY package*.json ./
 # 依存関係をインストール（これは必要）
 RUN npm install
 
-# 残りのアプリのフォルダやファイルをコピー（node_modules は除外）
-COPY . .
 
 
 #Docker の動作原理
