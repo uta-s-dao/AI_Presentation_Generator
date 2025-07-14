@@ -8,9 +8,10 @@ services:
     tty: true
     ports:
       - 3000:3000
+      - 3001:3001
     volumes:
       - .:/var/www //docker-compose.yamlがあるディレクトリ全体を/var/wwwにマウント
-    command: npm run dev
+    command: bash -c "npm run dev & npm run server & wait"
     networks:
       - default
 

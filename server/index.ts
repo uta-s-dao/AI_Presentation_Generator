@@ -4,6 +4,7 @@ import express from "express";
 import cors from "cors";
 import OpenAI from "openai";
 import { fileURLToPath } from "url";
+// import mysql from "promise-mysql";
 
 // ES modules で __dirname を再現
 const __filename = fileURLToPath(import.meta.url);
@@ -59,7 +60,8 @@ app.post("/api/generate-image", async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
+const port = 3001;
+app.listen(port, "0.0.0.0", () => {
+  // '0.0.0.0'を追加
   console.log(`Server listening on port ${port}`);
 });

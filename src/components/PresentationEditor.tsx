@@ -535,7 +535,7 @@ export function PresentationEditor({ content, title, company, creator, onSave, o
     
     return () => {
       if (deck.current) {
-        // @ts-ignore - TypeScriptの型定義にoffが含まれていないがReveal.jsにはある
+        // @ts-i- TypeScriptの型定義にoffが含まれていないがReveal.jsにはある
         deck.current.off('slidechanged', handleSlideChange);
       }
     };
