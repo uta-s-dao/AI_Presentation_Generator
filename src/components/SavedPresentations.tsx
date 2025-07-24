@@ -6,6 +6,7 @@ import {
   SavedPresentation,
 } from "../lib/storage";
 import { escapeHtml } from "../lib/utils";
+import { saveLatestPresentationToDatabase } from "./adapter";
 
 interface SavedPresentationsProps {
   onPresentationSelect: (presentation: SavedPresentation) => void;
@@ -27,6 +28,7 @@ export function SavedPresentations({
       console.log("SavedPresentations component mounted");
     }
     loadPresentations();
+    saveLatestPresentationToDatabase();
   }, []);
 
   const loadPresentations = () => {

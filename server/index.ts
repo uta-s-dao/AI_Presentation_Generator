@@ -118,18 +118,18 @@ app.get("/api/presentations/:id", async (req, res) => {
 // プレゼンテーション作成
 app.post("/api/presentations", async (req, res) => {
   try {
-    const { title, company, creator, content } = req.body;
+    const { unique_id, title, company, creator, content } = req.body;
 
-    if (!title || !company || !creator || !content) {
+    if (!unique_id || !title || !company || !creator || !content) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     const connection = await pool.getConnection();
     try {
-      const now = new Date();
+      const now = new Date().toISOString().split("T")[0]; // YYYY-MM-DD 形式
       const [result] = await connection.execute(
-        "INSERT INTO presentations (title, company, creator, content, createdAt, updatedAt, thumbnailUrl) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [title, company, creator, content, now, now, ""]
+        "INSERT INTO presentations (unique_id, title, company, creator, content, createdAt, updatedAt, thumbnailUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [unique_id, title, company, creator, content, now, now, ""]
       );
 
       const insertResult = result as mysql.ResultSetHeader;

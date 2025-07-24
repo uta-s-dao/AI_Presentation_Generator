@@ -7,7 +7,7 @@ services:
     container_name: node
     tty: true
     ports:
-      - 3000:3000
+      - 3000:3000 #wslの3000ポートをコンテナの3000ポートにマッピング
       - 3001:3001
     volumes:
       - .:/var/www #docker-compose.yamlがあるディレクトリ全体を/var/wwwにマウント

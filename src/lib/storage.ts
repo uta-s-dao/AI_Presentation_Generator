@@ -1,12 +1,13 @@
 export interface SavedPresentation {
-  id: string;
-  title: string;
   company: string;
-  creator: string;
   content: string;
   createdAt: string;
+  creator: string;
+  id: string;
+  title: string;
   updatedAt: string;
   thumbnailUrl?: string;
+  audioUrl?: string;
 }
 
 const STORAGE_KEY = "ai-presentations";
@@ -111,6 +112,21 @@ export function getSavedPresentations(): SavedPresentation[] {
 export function getPresentationById(id: string): SavedPresentation | null {
   const savedPresentations = getSavedPresentations();
   return savedPresentations.find((p) => p.id === id) || null;
+}
+
+export function getLatestPresentationId(): string | null {
+  const savedPresentations = getSavedPresentations();
+
+  if (savedPresentations.length === 0) {
+    return null;
+  }
+
+  // createdAtで降順ソートして最新のものを取得
+  const sortedPresentations = savedPresentations.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  return sortedPresentations[0].id;
 }
 
 // デモ用のテストデータを追加する関数
