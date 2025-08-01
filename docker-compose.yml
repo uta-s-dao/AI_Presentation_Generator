@@ -34,6 +34,8 @@ services:
       - ./mysql/conf.d:/etc/mysql/conf.d
       # DB初期化ディレクトリにマウントする
       - ./mysql/init.d:/docker-entrypoint-initdb.d
+      # 名前付きボリュームにマウントして、データベースファイルを永続化する。var/lib/mysqlはMySQLサーバーがデフォルトでデータベースファイルを保存する場所
+      - mysql_data:/var/lib/mysql
     # ネットワーク
     networks:
       - default
@@ -42,3 +44,8 @@ services:
 networks:
   default:
     driver: bridge
+
+# ボリューム
+volumes:
+  mysql_data:
+    driver: local
