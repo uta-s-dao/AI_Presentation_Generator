@@ -3,6 +3,7 @@ import { InitialForm } from "./components/InitialForm";
 import { PresentationEditor } from "./components/PresentationEditor";
 import { SavedPresentations } from "./components/SavedPresentations";
 import { chatCompletion } from "./lib/openai";
+import { saveLatestPresentationToDatabase } from "./components/adapter";
 import {
   savePresentation,
   updatePresentation,
@@ -32,10 +33,8 @@ function App() {
 
   // 初回マウント時にデモデータを追加
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("App component mounted, adding demo presentation");
-    }
     addDemoPresentation();
+    saveLatestPresentationToDatabase();
   }, []);
 
   // 保存メッセージを一定時間後に消す
@@ -197,14 +196,6 @@ function App() {
       creator: "",
     });
   };
-
-  if (process.env.NODE_ENV !== "production") {
-    console.log(
-      "App rendering, showSavedPresentations:",
-      showSavedPresentations
-    );
-    console.log("App state:", { isEditing, generatedContent });
-  }
 
   return (
     <div className='min-h-screen'>

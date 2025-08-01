@@ -21,24 +21,15 @@ export function SavedPresentations({
   const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(
     null
   );
-
+ 
   //localstorageから読み込み
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("SavedPresentations component mounted");
-    }
     loadPresentations();
     saveLatestPresentationToDatabase();
   }, []);
 
   const loadPresentations = () => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Loading presentations from storage");
-    }
     const savedPresentations = getSavedPresentations();
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Retrieved presentations:", savedPresentations);
-    }
 
     const sortedPresentations =
       savedPresentations.length > 0
@@ -48,9 +39,6 @@ export function SavedPresentations({
           )
         : [];
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Setting presentations state:", sortedPresentations);
-    }
     setPresentations(sortedPresentations);
   };
 
@@ -78,13 +66,6 @@ export function SavedPresentations({
       minute: "2-digit",
     }).format(date);
   };
-
-  if (process.env.NODE_ENV !== "production") {
-    console.log(
-      "SavedPresentations rendering, presentations.length:",
-      presentations.length
-    );
-  }
 
   return (
     <div className='w-full max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg'>

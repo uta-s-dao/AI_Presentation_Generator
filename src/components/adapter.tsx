@@ -26,14 +26,6 @@ export const createPresentationFromStorage = async (presentationId: string) => {
       }),
     });
 
-    console.log("Sending data:", {
-      unique_id: presentationData.id,
-      title: presentationData.title,
-      company: presentationData.company,
-      creator: presentationData.creator,
-      content: presentationData.content,
-    });
-
     if (response.ok) {
       const data = await response.json();
       console.log("作成成功:", data);
