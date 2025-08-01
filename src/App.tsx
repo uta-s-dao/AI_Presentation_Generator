@@ -3,13 +3,11 @@ import { InitialForm } from "./components/InitialForm";
 import { PresentationEditor } from "./components/PresentationEditor";
 import { SavedPresentations } from "./components/SavedPresentations";
 import { chatCompletion } from "./lib/openai";
-import { saveLatestPresentationToDatabase } from "./components/adapter";
 import {
   savePresentation,
   updatePresentation,
   SavedPresentation,
   // getSavedPresentations,
-  addDemoPresentation,
 } from "./lib/storage";
 
 function App() {
@@ -30,12 +28,6 @@ function App() {
     creator: "",
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // 初回マウント時にデモデータを追加
-  useEffect(() => {
-    addDemoPresentation();
-    saveLatestPresentationToDatabase();
-  }, []);
 
   // 保存メッセージを一定時間後に消す
   useEffect(() => {

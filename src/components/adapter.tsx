@@ -3,12 +3,40 @@ const API_BASE_URL = "http://localhost:3000";
 
 export const createPresentationFromStorage = async (presentationId: string) => {
   try {
-    // localStorageから特定のプレゼンテーションを取得
+    // localStorageから最新のプレゼンテーションを取得
     const presentationData = getPresentationById(presentationId);
 
     if (!presentationData) {
       throw new Error(
         `Presentation with ID ${presentationId} not found in localStorage`
+      );
+    }
+    // 同じunique_idが既に存在するかチェック
+    const existingCheckResponse = await fetch(
+      `${API_BASE_URL}/api/presentations/check/${encodeURIComponent(
+        presentationData.id
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (existingCheckResponse.ok) {
+      const checkData = await existingCheckResponse.json();
+      if (checkData.exists) {
+        console.log(
+          `Presentation with unique_id ${presentationData.id} already exists in database. Skipping save.`
+        );
+        return checkData.presentation; // 既存のプレゼンテーションデータを返す
+      }
+    } else if (existingCheckResponse.status !== 404) {
+      // 404以外のエラーの場合はログを出力（404は存在しないことを意味するので正常）
+      console.warn(
+        "Failed to check existing presentation:",
+        existingCheckResponse.status
       );
     }
 

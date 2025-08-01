@@ -72,6 +72,31 @@ app.post("/api/generate-image", async (req, res) => {
   }
 });
 
+// unique_idで既存のプレゼンテーションをチェック
+app.get("/api/presentations/check/:unique_id", async (req, res) => {
+  try {
+    const { unique_id } = req.params;
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.execute(
+        "SELECT * FROM presentations WHERE unique_id = ?",
+        [unique_id]
+      );
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        res.json({ exists: true, presentation: rows[0] });
+      } else {
+        res.status(404).json({ exists: false });
+      }
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error("Error checking presentation:", err);
+    res.status(500).json({ error: "Failed to check presentation" });
+  }
+});
+
 // 全プレゼンテーション取得
 app.get("/api/presentations", async (req, res) => {
   try {
