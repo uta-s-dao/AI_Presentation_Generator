@@ -3,12 +3,16 @@ import { InitialForm } from "./components/InitialForm";
 import { PresentationEditor } from "./components/PresentationEditor";
 import { SavedPresentations } from "./components/SavedPresentations";
 import { chatCompletion } from "./lib/openai";
+import // savePresentation,
+// updatePresentation,
+// SavedPresentation,
+// getSavedPresentations,
+"./lib/storage";
 import {
-  savePresentation,
-  updatePresentation,
-  SavedPresentation,
-  // getSavedPresentations,
-} from "./lib/storage";
+  DatabasePresentation,
+  updatePresentationInDatabase,
+  createPresentationInDatabase,
+} from "./lib/api";
 
 function App() {
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
@@ -18,7 +22,7 @@ function App() {
   const [showSavedPresentations, setShowSavedPresentations] =
     useState<boolean>(true);
   const [currentPresentation, setCurrentPresentation] = useState<{
-    id?: string;
+    unique_id?: string;
     title: string;
     company: string;
     creator: string;
@@ -125,13 +129,13 @@ function App() {
     setGeneratedContent(newContent);
   };
 
-  const handlePresentationSave = () => {
+  const handlePresentationSave = async () => {
     if (!generatedContent) return;
 
     try {
-      if (currentPresentation.id) {
+      if (currentPresentation.unique_id) {
         // 既存のプレゼンテーションを更新
-        updatePresentation(currentPresentation.id, {
+        updatePresentationInDatabase(currentPresentation.unique_id, {
           title: currentPresentation.title,
           company: currentPresentation.company,
           creator: currentPresentation.creator,
@@ -140,7 +144,7 @@ function App() {
         setSuccessMessage("プレゼンテーションを更新しました");
       } else {
         // 新しいプレゼンテーションを保存
-        const saved = savePresentation({
+        const saved = await createPresentationInDatabase({
           title: currentPresentation.title,
           company: currentPresentation.company,
           creator: currentPresentation.creator,
@@ -148,7 +152,7 @@ function App() {
         });
         setCurrentPresentation((prev) => ({
           ...prev,
-          id: saved.id,
+          unique_id: saved.unique_id,
         }));
         setSuccessMessage("プレゼンテーションを保存しました");
       }
@@ -173,9 +177,9 @@ function App() {
     setNeedsRefresh(true);
   };
 
-  const handlePresentationSelect = (presentation: SavedPresentation) => {
+  const handlePresentationSelect = (presentation: DatabasePresentation) => {
     setCurrentPresentation({
-      id: presentation.id,
+      unique_id: presentation.unique_id,
       title: presentation.title,
       company: presentation.company,
       creator: presentation.creator,
@@ -229,9 +233,9 @@ function App() {
               ← 保存一覧に戻る
             </button>
             <div className='text-center flex-grow'>
-              {currentPresentation.id ? (
+              {currentPresentation.unique_id ? (
                 <span className='text-sm text-gray-500'>
-                  ID: {currentPresentation.id}
+                  ID: {currentPresentation.unique_id}
                 </span>
               ) : (
                 <span className='text-sm text-gray-500'>
