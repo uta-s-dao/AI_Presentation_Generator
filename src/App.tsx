@@ -3,13 +3,16 @@ import { InitialForm } from "./components/InitialForm";
 import { PresentationEditor } from "./components/PresentationEditor";
 import { SavedPresentations } from "./components/SavedPresentations";
 import { chatCompletion } from "./lib/openai";
+import // savePresentation,
+// updatePresentation,
+// SavedPresentation,
+// getSavedPresentations,
+"./lib/storage";
 import {
-  savePresentation,
-  updatePresentation,
-  SavedPresentation,
-  // getSavedPresentations,
-  addDemoPresentation,
-} from "./lib/storage";
+  DatabasePresentation,
+  updatePresentationInDatabase,
+  createPresentationInDatabase,
+} from "./lib/api";
 
 function App() {
   const [generatedContent, setGeneratedContent] = useState<string | null>(null);
@@ -19,7 +22,7 @@ function App() {
   const [showSavedPresentations, setShowSavedPresentations] =
     useState<boolean>(true);
   const [currentPresentation, setCurrentPresentation] = useState<{
-    id?: string;
+    unique_id?: string;
     title: string;
     company: string;
     creator: string;
@@ -29,14 +32,7 @@ function App() {
     creator: "",
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // 初回マウント時にデモデータを追加
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("App component mounted, adding demo presentation");
-    }
-    addDemoPresentation();
-  }, []);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
 
   // 保存メッセージを一定時間後に消す
   useEffect(() => {
@@ -133,13 +129,13 @@ function App() {
     setGeneratedContent(newContent);
   };
 
-  const handlePresentationSave = () => {
+  const handlePresentationSave = async () => {
     if (!generatedContent) return;
 
     try {
-      if (currentPresentation.id) {
+      if (currentPresentation.unique_id) {
         // 既存のプレゼンテーションを更新
-        updatePresentation(currentPresentation.id, {
+        updatePresentationInDatabase(currentPresentation.unique_id, {
           title: currentPresentation.title,
           company: currentPresentation.company,
           creator: currentPresentation.creator,
@@ -148,7 +144,7 @@ function App() {
         setSuccessMessage("プレゼンテーションを更新しました");
       } else {
         // 新しいプレゼンテーションを保存
-        const saved = savePresentation({
+        const saved = await createPresentationInDatabase({
           title: currentPresentation.title,
           company: currentPresentation.company,
           creator: currentPresentation.creator,
@@ -156,10 +152,12 @@ function App() {
         });
         setCurrentPresentation((prev) => ({
           ...prev,
-          id: saved.id,
+          unique_id: saved.unique_id,
         }));
         setSuccessMessage("プレゼンテーションを保存しました");
       }
+      // プレゼンテーション一覧の更新をトリガー
+      setNeedsRefresh(true);
     } catch (error) {
       console.error("Error saving presentation:", error);
       setError("プレゼンテーションの保存に失敗しました");
@@ -175,11 +173,13 @@ function App() {
       creator: "",
     });
     setShowSavedPresentations(true);
+    // プレゼンテーション一覧の更新をトリガー
+    setNeedsRefresh(true);
   };
 
-  const handlePresentationSelect = (presentation: SavedPresentation) => {
+  const handlePresentationSelect = (presentation: DatabasePresentation) => {
     setCurrentPresentation({
-      id: presentation.id,
+      unique_id: presentation.unique_id,
       title: presentation.title,
       company: presentation.company,
       creator: presentation.creator,
@@ -198,19 +198,14 @@ function App() {
     });
   };
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log(
-      "App rendering, showSavedPresentations:",
-      showSavedPresentations
-    );
-    console.log("App state:", { isEditing, generatedContent });
-  }
-
   return (
     <div className='min-h-screen'>
       <div className='flex justify-center border-b mb-3'>
         {/* デバッグ情報 */}
-        <button onClick={handleBack} className='pt-3 pr-3 pl-2 mb-2 text-4xl'>
+        <button
+          onClick={handleBack}
+          className='pt-3 bg-blue-200 pr-3 pl-2 mb-2 text-4xl'
+        >
           Presentation Generator
         </button>
       </div>
@@ -219,6 +214,8 @@ function App() {
         <SavedPresentations
           onPresentationSelect={handlePresentationSelect} //既存のプレゼンテーションが選択された時の処理
           onCreateNew={handleCreateNew} //新規プレゼンテーション作成時の処理：
+          needsRefresh={needsRefresh}
+          onRefreshComplete={() => setNeedsRefresh(false)}
         />
       ) : !isEditing ? (
         // プレゼンテーション作成フォーム画面
@@ -236,9 +233,9 @@ function App() {
               ← 保存一覧に戻る
             </button>
             <div className='text-center flex-grow'>
-              {currentPresentation.id ? (
+              {currentPresentation.unique_id ? (
                 <span className='text-sm text-gray-500'>
-                  ID: {currentPresentation.id}
+                  ID: {currentPresentation.unique_id}
                 </span>
               ) : (
                 <span className='text-sm text-gray-500'>

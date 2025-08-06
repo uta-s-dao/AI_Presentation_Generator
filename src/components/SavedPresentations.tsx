@@ -1,44 +1,46 @@
 import { useState, useEffect } from "react";
 import { Presentation, Edit, Trash2, Calendar, User } from "lucide-react";
-import {
-  getSavedPresentations,
-  deletePresentation,
-  SavedPresentation,
-} from "../lib/storage";
+
 import { escapeHtml } from "../lib/utils";
-import { saveLatestPresentationToDatabase } from "./adapter";
+import { fetchPresentationsFromDatabase } from "../lib/api";
+import { DatabasePresentation } from "../lib/api";
+import { deletePresentationFromDatabase } from "../lib/api";
 
 interface SavedPresentationsProps {
-  onPresentationSelect: (presentation: SavedPresentation) => void;
+  onPresentationSelect: (presentation: DatabasePresentation) => void;
   onCreateNew: () => void;
+  needsRefresh?: boolean;
+  onRefreshComplete?: () => void;
 }
 
 export function SavedPresentations({
   onPresentationSelect,
   onCreateNew,
+  needsRefresh,
+  onRefreshComplete,
 }: SavedPresentationsProps) {
-  const [presentations, setPresentations] = useState<SavedPresentation[]>([]);
+  const [presentations, setPresentations] = useState<DatabasePresentation[]>(
+    []
+  );
   const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(
     null
   );
 
-  //localstorageから読み込み
+  // 初期データ読み込み
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("SavedPresentations component mounted");
-    }
     loadPresentations();
-    saveLatestPresentationToDatabase();
   }, []);
 
-  const loadPresentations = () => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Loading presentations from storage");
+  // プレゼンテーション更新時の再読み込み
+  useEffect(() => {
+    if (needsRefresh) {
+      loadPresentations();
+      onRefreshComplete?.();
     }
-    const savedPresentations = getSavedPresentations();
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Retrieved presentations:", savedPresentations);
-    }
+  }, [needsRefresh, onRefreshComplete]);
+
+  const loadPresentations = async () => {
+    const savedPresentations = await fetchPresentationsFromDatabase();
 
     const sortedPresentations =
       savedPresentations.length > 0
@@ -48,9 +50,6 @@ export function SavedPresentations({
           )
         : [];
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Setting presentations state:", sortedPresentations);
-    }
     setPresentations(sortedPresentations);
   };
 
@@ -58,10 +57,22 @@ export function SavedPresentations({
     setShowConfirmDelete(id);
   };
 
-  const confirmDelete = (id: string) => {
-    deletePresentation(id);
-    loadPresentations();
-    setShowConfirmDelete(null);
+  // 削除確認処理を修正
+  const confirmDelete = async (uniqueId: string) => {
+    try {
+      const success = await deletePresentationFromDatabase(uniqueId);
+      if (success) {
+        // 削除成功時にリストを再読み込み
+        await loadPresentations();
+        setShowConfirmDelete(null);
+      } else {
+        // 削除失敗時のエラーハンドリング
+        alert("削除に失敗しました。もう一度お試しください。");
+      }
+    } catch (error) {
+      console.error("削除処理でエラーが発生しました:", error);
+      alert("削除に失敗しました。もう一度お試しください。");
+    }
   };
 
   const cancelDelete = () => {
@@ -78,13 +89,6 @@ export function SavedPresentations({
       minute: "2-digit",
     }).format(date);
   };
-
-  if (process.env.NODE_ENV !== "production") {
-    console.log(
-      "SavedPresentations rendering, presentations.length:",
-      presentations.length
-    );
-  }
 
   return (
     <div className='w-full max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg'>
@@ -136,7 +140,7 @@ export function SavedPresentations({
                 key={presentation.id}
                 className='border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4 relative'
               >
-                {showConfirmDelete === presentation.id && (
+                {showConfirmDelete === presentation.unique_id && (
                   <div className='absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10 rounded-lg'>
                     <div className='text-center p-6'>
                       <p className='text-gray-800 mb-4'>
@@ -144,7 +148,7 @@ export function SavedPresentations({
                       </p>
                       <div className='flex space-x-3 justify-center'>
                         <button
-                          onClick={() => confirmDelete(presentation.id)}
+                          onClick={() => confirmDelete(presentation.unique_id)}
                           className='px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors'
                         >
                           削除する
@@ -188,7 +192,7 @@ export function SavedPresentations({
                       <Edit className='w-5 h-5' />
                     </button>
                     <button
-                      onClick={() => handleDelete(presentation.id)}
+                      onClick={() => handleDelete(presentation.unique_id)}
                       className='p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors'
                       title='削除'
                     >

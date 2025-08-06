@@ -35,6 +35,184 @@ const dbConfig = {
 
 const pool = mysql.createPool(dbConfig);
 
+// unique_idでGET
+app.get("/api/presentations/:unique_id", async (req, res) => {
+  try {
+    const { unique_id } = req.params;
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.execute(
+        "SELECT * FROM presentations WHERE unique_id = ?",
+        [unique_id]
+      );
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        res.json({ exists: true, presentation: rows[0] });
+      } else {
+        res.status(404).json({ exists: false });
+      }
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error("Error checking presentation:", err);
+    res.status(500).json({ error: "Failed to check presentation" });
+  }
+});
+
+// unique_idでDELETE
+app.delete("/api/presentations/:unique_id", async (req, res) => {
+  try {
+    const { unique_id } = req.params;
+    const connection = await pool.getConnection();
+    try {
+      const [result] = await connection.execute(
+        "DELETE FROM presentations WHERE unique_id = ?",
+        [unique_id]
+      );
+
+      const deleteResult = result as mysql.ResultSetHeader;
+      if (deleteResult.affectedRows === 0) {
+        return res.status(404).json({ error: "Presentation not found" });
+      }
+
+      res.json({ message: "Presentation deleted successfully" });
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error("Error deleting presentation:", err);
+    res.status(500).json({ error: "Failed to delete presentation" });
+  }
+});
+
+//unique_idでPUT
+app.put("/api/presentations/:unique_id", async (req, res) => {
+  try {
+    const { unique_id } = req.params;
+    const { title, company, creator, content } = req.body;
+
+    if (!title || !company || !creator || !content) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      const now = new Date();
+      const [result] = await connection.execute(
+        "UPDATE presentations SET title = ?, company = ?, creator = ?, content = ?, updatedAt = ? WHERE unique_id = ?",
+        [title, company, creator, content, now, unique_id]
+      );
+
+      const updateResult = result as mysql.ResultSetHeader;
+      if (updateResult.affectedRows === 0) {
+        return res.status(404).json({ error: "Presentation not found" });
+      }
+
+      // 更新したプレゼンテーションを取得して返す
+      const [rows] = await connection.execute(
+        "SELECT * FROM presentations WHERE unique_id = ?",
+        [unique_id]
+      );
+
+      res.json(rows[0]);
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error("Error updating presentation:", err);
+    res.status(500).json({ error: "Failed to update presentation" });
+  }
+});
+
+//dockerDBにPOST
+app.post("/api/presentations", async (req, res) => {
+  try {
+    const { title, company, creator, content, thumbnailUrl } = req.body;
+
+    // バリデーション
+    if (!title || !company || !creator) {
+      return res.status(400).json({
+        error: "title, company, creator are required",
+      });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      // UUID生成（crypto.randomUUID()を使用）
+      const unique_id = crypto.randomUUID();
+
+      // 現在の日付（YYYY-MM-DD形式）
+      const today = new Date().toISOString().split("T")[0];
+
+      // INSERT実行（戻り値を受け取らない）
+      await connection.execute(
+        `INSERT INTO presentations 
+         (unique_id, title, company, creator, content, createdAt, updatedAt, thumbnailUrl) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          unique_id,
+          title,
+          company,
+          creator,
+          content || "",
+          today,
+          today,
+          thumbnailUrl || "",
+        ]
+      );
+
+      res.status(201).json({
+        success: true,
+        unique_id: unique_id,
+        message: "Presentation created successfully",
+      });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Error creating presentation:", error);
+    res.status(500).json({
+      error: "Failed to create presentation",
+      details: error.message,
+    });
+  }
+});
+
+// 全プレゼンテーション取得
+app.get("/api/presentations", async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.execute(
+        "SELECT * FROM presentations ORDER BY updatedAt DESC"
+      );
+      res.json(rows);
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error("Error fetching presentations:", err);
+    res.status(500).json({ error: "Failed to fetch presentations" });
+  }
+});
+
+// データベース接続テスト
+app.get("/api/health", async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    try {
+      await connection.execute("SELECT 1");
+      res.json({ status: "OK", database: "Connected" });
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error("Database connection error:", err);
+    res.status(500).json({ status: "Error", database: "Disconnected" });
+  }
+});
+
 app.post("/api/generate-text", async (req, res) => {
   try {
     const {
@@ -72,165 +250,66 @@ app.post("/api/generate-image", async (req, res) => {
   }
 });
 
-// 全プレゼンテーション取得
-app.get("/api/presentations", async (req, res) => {
-  try {
-    const connection = await pool.getConnection();
-    try {
-      const [rows] = await connection.execute(
-        "SELECT * FROM presentations ORDER BY updatedAt DESC"
-      );
-      res.json(rows);
-    } finally {
-      connection.release();
-    }
-  } catch (err) {
-    console.error("Error fetching presentations:", err);
-    res.status(500).json({ error: "Failed to fetch presentations" });
-  }
-});
+// // 特定のプレゼンテーション取得
+// app.get("/api/presentations/:id", async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const connection = await pool.getConnection();
+//     try {
+//       const [rows] = await connection.execute(
+//         "SELECT * FROM presentations WHERE id = ?",
+//         [id]
+//       );
 
-// 特定のプレゼンテーション取得
-app.get("/api/presentations/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const connection = await pool.getConnection();
-    try {
-      const [rows] = await connection.execute(
-        "SELECT * FROM presentations WHERE id = ?",
-        [id]
-      );
+//       if (Array.isArray(rows) && rows.length === 0) {
+//         return res.status(404).json({ error: "Presentation not found" });
+//       }
 
-      if (Array.isArray(rows) && rows.length === 0) {
-        return res.status(404).json({ error: "Presentation not found" });
-      }
+//       res.json(rows[0]);
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (err) {
+//     console.error("Error fetching presentation:", err);
+//     res.status(500).json({ error: "Failed to fetch presentation" });
+//   }
+// });
 
-      res.json(rows[0]);
-    } finally {
-      connection.release();
-    }
-  } catch (err) {
-    console.error("Error fetching presentation:", err);
-    res.status(500).json({ error: "Failed to fetch presentation" });
-  }
-});
+// // プレゼンテーション作成
+// app.post("/api/presentations", async (req, res) => {
+//   try {
+//     const { unique_id, title, company, creator, content } = req.body;
 
-// プレゼンテーション作成
-app.post("/api/presentations", async (req, res) => {
-  try {
-    const { unique_id, title, company, creator, content } = req.body;
+//     if (!unique_id || !title || !company || !creator || !content) {
+//       return res.status(400).json({ error: "Missing required fields" });
+//     }
 
-    if (!unique_id || !title || !company || !creator || !content) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
+//     const connection = await pool.getConnection();
+//     try {
+//       const now = new Date().toISOString().split("T")[0]; // YYYY-MM-DD 形式
+//       const [result] = await connection.execute(
+//         "INSERT INTO presentations (unique_id, title, company, creator, content, createdAt, updatedAt, thumbnailUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+//         [unique_id, title, company, creator, content, now, now, ""]
+//       );
 
-    const connection = await pool.getConnection();
-    try {
-      const now = new Date().toISOString().split("T")[0]; // YYYY-MM-DD 形式
-      const [result] = await connection.execute(
-        "INSERT INTO presentations (unique_id, title, company, creator, content, createdAt, updatedAt, thumbnailUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [unique_id, title, company, creator, content, now, now, ""]
-      );
+//       const insertResult = result as mysql.ResultSetHeader;
+//       const newId = insertResult.insertId;
 
-      const insertResult = result as mysql.ResultSetHeader;
-      const newId = insertResult.insertId;
+//       // 作成したプレゼンテーションを取得して返す
+//       const [rows] = await connection.execute(
+//         "SELECT * FROM presentations WHERE id = ?",
+//         [newId]
+//       );
 
-      // 作成したプレゼンテーションを取得して返す
-      const [rows] = await connection.execute(
-        "SELECT * FROM presentations WHERE id = ?",
-        [newId]
-      );
-
-      res.status(201).json(rows[0]);
-    } finally {
-      connection.release();
-    }
-  } catch (err) {
-    console.error("Error creating presentation:", err);
-    res.status(500).json({ error: "Failed to create presentation" });
-  }
-});
-
-// プレゼンテーション更新
-app.put("/api/presentations/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, company, creator, content } = req.body;
-
-    if (!title || !company || !creator || !content) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const connection = await pool.getConnection();
-    try {
-      const now = new Date();
-      const [result] = await connection.execute(
-        "UPDATE presentations SET title = ?, company = ?, creator = ?, content = ?, updatedAt = ? WHERE id = ?",
-        [title, company, creator, content, now, id]
-      );
-
-      const updateResult = result as mysql.ResultSetHeader;
-      if (updateResult.affectedRows === 0) {
-        return res.status(404).json({ error: "Presentation not found" });
-      }
-
-      // 更新したプレゼンテーションを取得して返す
-      const [rows] = await connection.execute(
-        "SELECT * FROM presentations WHERE id = ?",
-        [id]
-      );
-
-      res.json(rows[0]);
-    } finally {
-      connection.release();
-    }
-  } catch (err) {
-    console.error("Error updating presentation:", err);
-    res.status(500).json({ error: "Failed to update presentation" });
-  }
-});
-
-// プレゼンテーション削除
-app.delete("/api/presentations/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const connection = await pool.getConnection();
-    try {
-      const [result] = await connection.execute(
-        "DELETE FROM presentations WHERE id = ?",
-        [id]
-      );
-
-      const deleteResult = result as mysql.ResultSetHeader;
-      if (deleteResult.affectedRows === 0) {
-        return res.status(404).json({ error: "Presentation not found" });
-      }
-
-      res.json({ message: "Presentation deleted successfully" });
-    } finally {
-      connection.release();
-    }
-  } catch (err) {
-    console.error("Error deleting presentation:", err);
-    res.status(500).json({ error: "Failed to delete presentation" });
-  }
-});
-
-// データベース接続テスト
-app.get("/api/health", async (req, res) => {
-  try {
-    const connection = await pool.getConnection();
-    try {
-      await connection.execute("SELECT 1");
-      res.json({ status: "OK", database: "Connected" });
-    } finally {
-      connection.release();
-    }
-  } catch (err) {
-    console.error("Database connection error:", err);
-    res.status(500).json({ status: "Error", database: "Disconnected" });
-  }
-});
+//       res.status(201).json(rows[0]);
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (err) {
+//     console.error("Error creating presentation:", err);
+//     res.status(500).json({ error: "Failed to create presentation" });
+//   }
+// });
 
 const port = 3001;
 app.listen(port, "0.0.0.0", () => {
