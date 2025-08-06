@@ -11,11 +11,15 @@ import { saveLatestPresentationToDatabase } from "./adapter";
 interface SavedPresentationsProps {
   onPresentationSelect: (presentation: SavedPresentation) => void;
   onCreateNew: () => void;
+  needsRefresh?: boolean;
+  onRefreshComplete?: () => void;
 }
 
 export function SavedPresentations({
   onPresentationSelect,
   onCreateNew,
+  needsRefresh,
+  onRefreshComplete,
 }: SavedPresentationsProps) {
   const [presentations, setPresentations] = useState<SavedPresentation[]>([]);
   const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(
@@ -27,6 +31,14 @@ export function SavedPresentations({
     loadPresentations();
     saveLatestPresentationToDatabase();
   }, []);
+
+  // プレゼンテーション更新時の再読み込み
+  useEffect(() => {
+    if (needsRefresh) {
+      loadPresentations();
+      onRefreshComplete?.();
+    }
+  }, [needsRefresh, onRefreshComplete]);
 
   const loadPresentations = () => {
     const savedPresentations = getSavedPresentations();

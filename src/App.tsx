@@ -28,6 +28,7 @@ function App() {
     creator: "",
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
 
   // 保存メッセージを一定時間後に消す
   useEffect(() => {
@@ -151,6 +152,8 @@ function App() {
         }));
         setSuccessMessage("プレゼンテーションを保存しました");
       }
+      // プレゼンテーション一覧の更新をトリガー
+      setNeedsRefresh(true);
     } catch (error) {
       console.error("Error saving presentation:", error);
       setError("プレゼンテーションの保存に失敗しました");
@@ -166,6 +169,8 @@ function App() {
       creator: "",
     });
     setShowSavedPresentations(true);
+    // プレゼンテーション一覧の更新をトリガー
+    setNeedsRefresh(true);
   };
 
   const handlePresentationSelect = (presentation: SavedPresentation) => {
@@ -193,7 +198,10 @@ function App() {
     <div className='min-h-screen'>
       <div className='flex justify-center border-b mb-3'>
         {/* デバッグ情報 */}
-        <button onClick={handleBack} className='pt-3 pr-3 pl-2 mb-2 text-4xl'>
+        <button
+          onClick={handleBack}
+          className='pt-3 bg-blue-200 pr-3 pl-2 mb-2 text-4xl'
+        >
           Presentation Generator
         </button>
       </div>
@@ -202,6 +210,8 @@ function App() {
         <SavedPresentations
           onPresentationSelect={handlePresentationSelect} //既存のプレゼンテーションが選択された時の処理
           onCreateNew={handleCreateNew} //新規プレゼンテーション作成時の処理：
+          needsRefresh={needsRefresh}
+          onRefreshComplete={() => setNeedsRefresh(false)}
         />
       ) : !isEditing ? (
         // プレゼンテーション作成フォーム画面
